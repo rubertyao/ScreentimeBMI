@@ -2,7 +2,7 @@
 title: "An Analysis of BMI with Screentime"
 subtitle: "Math 261A Project 2"
 author: "Robert Yav"
-thanks: "Project repository available at: [https://github.com/rubertyao/NCAAWomensVolleyballAnalysis]"
+thanks: "Project repository available at: [https://github.com/rubertyao/ScreentimeBMI]"
 date: today
 date-format: long
 abstract: "..."
@@ -34,18 +34,13 @@ assists per set - The average amount of sets, passes, or digs to a teammate that
 
 kills per set - Average amount of hits that directly result in a point per set.
 
-```{r fig-scatterplot}
+```{r}
 #| warning: false
 #| message: false
 #| echo: false
-#| fig-cap: "Scatterplot of Volleyball Kills per Set and Volleyball Assists per Set"
-vb_data=read.csv("volleyball_ncaa_div1_2022_23.csv")
-ggplot(data=vb_data,aes(x=assists_per_set,y=kills_per_set)) +
-  geom_point() +
-  labs(title = "Volleyball Kills as Explained by Assists",
-       subtitle= "Data from Female NCAA Teams",
-       x = "Assists per Set",
-       y = "Kills per Set")
+
+ bmi_data=read.table("data/CHNS2004-2015paper.tab", sep="\t",header=T)
+ bmi_data
 ```
 
 A quick observation of @fig-scatterplot indicates two potential outliers and a noticeable positive
