@@ -1,11 +1,11 @@
 ---
-title: "An Analysis of BMI with Screentime"
+title: "An Analysis of Screentime's effect on BMI"
 subtitle: "Math 261A Project 2"
 author: "Robert Yav"
 thanks: "Project repository available at: [https://github.com/rubertyao/ScreentimeBMI]"
 date: today
 date-format: long
-abstract: "..."
+abstract: "The purpose of this paper is to analyze the relationship between BMI and screentime, controlling for factors such as age, gender, and household income. We explore the use of other predictor variables to more accurately predict BMI. We source data from the China Health and Nutrition Survey (CNHS) published in 2019, and motivation from a 2024 paper by Ma J. and Shang L. on the effect of internet use on body weight in Chinese adolescents. The sample includes 459 observations of Chinese adolescents and their demographic and health data."
 format: 
   pdf:
     fig-pos: "H"
@@ -20,150 +20,196 @@ bibliography: references.bib
 #| echo: false
 library(ggplot2)
 library(knitr)
+library(dplyr)  
+library(tidyverse)
+library(caret)
+library(MASS)
 ```
 
 # Introduction
 
-Volleyball is a sport that requires elite athleticism, hand-eye coordination, open communication, and most importantly, the ability to combine all of these aspects into a functioning team. One fundamental concept of volleyball is the three touch play: Receive, set, and spike. There are, however, situations in which the ball will not need an additional touch, or assist, to get a point. A kill is a situation in which a team makes a play to render their opponents unable to prevent a bounce on the court on their playing area. This does not include situations in which the opponent fails to bring the ball from their side to their opponents' side, which would result in a point for their opponent. An assist is counted when a set, pass, or dig is made that directly allows a teammate to make a kill during a set. Then begs the question: Does one need to make assists to make more kills in volleyball? This project examines the relationship between the number of kills made for a team to the number of assists a team makes in a volleyball season. We expect there to be a positive This investigation may provide insight to coaches and players who want to improve their team's point totals by identifying what to prioritize improving during training and in game. Previous researchers in this field attempted to categorize player and team skills into a scale-based system which split the assist category we are interested in into two categories (Serve Reception and Dig) [@eom_statistical_1992], however for this experiment we were more interested in particularly those two categories as one metric. In the next sections, we perform a simple linear regression on kills as explained by assists, paying attention to any irregularities that may occur when we expect a positive linear relationship between those two variables.
+As the world develops, internet infrastructure and its penetration has increased dramatically in the past few decades. Screens have become commonplace, and it is not rare to see even children glued to their screens in public. [Ma J.] raises concerns about this observation, claiming that a rise in internet use has significantly increased BMI and obesity rates in Chinese adolescents. According to the aforementioned study, one of the hypotheses claim internet use would increase sedentary activities, mainly screen time. This claim leads to the motivation of this project: How can screen time and other lifestyle factors predict BMI, controlling for age, gender, and household income? This project examines the relationship between BMI and combined screen time for Chinese adolescents in 2015, controlling for external factors like age, sex, and income.
+
+A healthy BMI for an adult is 18.5-24.9, underweight is below 18.5, overweight is 25-29.9, and obese is 30.0 and above. For adolescents, BMI is calculated the same, but is interpreted differently by comparing BMI to other adolescents of the same age.
+
 
 # Data
 
-The data set used was collected from the Division 1 Women's NCAA Volleyball 2022-2023 season [@NCAA_Womens_Volleyball]. Division 1 is the highest division in college sport divisions, which means that the highest caliber of skill at the college level is displayed in these data. There are 344 rows and 14 variables, with each row representing a team at the Division 1 level from the 2022-2023 season. The 14 variables include: Team, Conference, region, aces per set, assists per set, team attacks per set, blocks per set, digs per set, hitting percentage, kills per set, opp hitting percentage, W, L, and win loss percentage. My analysis focuses on two of the variables, kills per set and assists per set.
+The data set used was sourced from Ma K. and Shang L. in 2024 [@ma_effect_2024] which merged information from the CNHS in 2019 [@DVN/FTTF6A_2024]. This data set tracks survey information on adolescents from China from 2005 to 2015, surveying demographic, income, education, and health information. There were 3054 observations aged 11-19, 52% of which were male. For the purposes of this analysis, and due to limitations of scope, we limit the data set to 2015, which include 459 observations, 50% of which are female. Since many of the data points in time are divisible by 10, it is highly likely that the time predictors are rounded to the nearest hour or 10th minute. While this will reduce the accuracy of the model, it is still a good indicator of the intensity of time spent doing any particular activity. This also addresses a concern in [@ma_effect_2024], which used binary data to answer their question, not taking into account the intensity of how much internet a particular individual consumed in comparison with sleep and exercise. Initial data visualization dropped three observations, 2 of which had NA values for household income and 1 because of a survey inaccuracy that recorded more than 24 hours of screen time in a day. Since these values had no influence on the analysis, they could be removed for simplicity.
 
-assists per set - The average amount of sets, passes, or digs to a teammate that directly result in a kill per set. Digs are usually made immediately after the opposition attempts a kill to prevent a ball from hitting the ground and pass is made usually towards a setter to "set up" a ball for a hitter to attempt a kill on the opposing team.
+Looking through the data set, it is important to disclose that the merged data Ma J. and Shang L. [@ma_effect_2024] provide to the Harvard Dataverse doesn't contain a data dictionary, and looking through the CNHS data sets do not have clear definitions for the obtained variable names either. This leads us to believe that the study renamed certain columns when merging the data sets, which have not been shared. However, we can infer what certain columns are due to their names and values. The main variables we use as a base model in our study is as follows:
 
-kills per set - Average amount of hits that directly result in a point per set.
+bmi: The Body Mass Index (BMI) of an adolescent.
+
+screen time: The average amount of combined screen time an adolescent receives, calculated from previous study by summing TV, video game, and computer screen times.
+
+age: the age of an individual.
+
+gender: the gender of an individual.
+
+ln(income): the log scaled income of an individual's family. Since this is the only variable for income and is generally right skewed, it is best to leave this variable transformed.
+
+Ma K. and Shang L. [@ma_effect_2024] make four hypotheses on what can increase body weight with internet use.
+ By using these hypotheses, we can obtain potential variables that can be used in variable selection to improve prediction accuracy in our model.
+ Hypothesis 1: Internet use increases the body weight in adolescents through sedentary activities.
+exercise time: The average amount of combined physical activity, in exercise time, calculated in minutes.
+sedentary time: The average amount of combined sedentary activity time, calculated in minutes.
+ Hypothesis 2: Internet use increases the body weight by crowding out sleep time.
+ sleep time: The average amount of sleep time, calculated in hours.
+ Hypothesis 3: Internet use increases the body weight through adverse health behaviors.
+ This includes health education, along with alcohol and cigarette consumption. Following exploratory analysis, the variables associated with alcohol and cigarette consumption contain mainly N/A values, which raises issues in the analysis. Since it is illegal for a child to smoke or drink in China, and the legal drinking and smoking age is above the age limit for the average child in the study, it is likely that the values obtained do not accurately represent the population. For health, since there is no data dictionary and the health variable seems to be an arbitrary score, it is in the analysis' best interest to leave it out of prediction, pending further clarification from the original study. Due to these concerns, we drop this hypothesis for future studies to consider.
+  Hypothesis 4: Internet use increases the body weight through food consumption behavior.
+ This includes junk food, tv, vegetable, and fruit food consumption scores. Since these scores also contain majority null values, we drop this hypothesis for future studies as well.
+ 
 
 ```{r}
 #| warning: false
 #| message: false
 #| echo: false
 
- bmi_data=read.table("data/CHNS2004-2015paper.tab", sep="\t",header=T)
- bmi_data
+ bmi_data_raw=read.table("data/CHNS2004-2015paper.tab", sep="\t",header=T)
+ bmi_data_raw=filter(bmi_data_raw,year==2015)
+ bmi_data = dplyr::select(bmi_data_raw, bmi,screeTIME,age,gender,lnincome,t_exe,all_seditry,sleep,screeTIME)
+ #Row 284 cannot have over 1440 minutes in a day, taken out due to inaccuracy
+ bmi_data = bmi_data[-284,]
+ # 2 NA observations of household income, will run analysis with and without.
+ bmi_data = bmi_data[complete.cases(bmi_data$lnincome),]
+ bmi_fit = lm(bmi~screeTIME+age+gender+lnincome,data=bmi_data)
+
 ```
 
-A quick observation of @fig-scatterplot indicates two potential outliers and a noticeable positive
-correlation between the variables. The outliers, however, under closer inspection, cannot
-be reasonably removed, as the teams performed lower compared to the other
-teams in the season (i.e. 28 losses to 0 wins).
 
 
 # Methods
-We fit the simple linear regression model:
+We fit the base multiple linear regression model:
+$$Y_i = \beta_0 +\beta_1 X_{1i} + \beta_2 X_{2i} + \beta_3 X_{3i} + \beta_4 ln(X_{4i}) + \varepsilon_i$$
+$\beta_0$ Intercept
 
-$$Y_i = \beta_0 +\beta_1 X_i + \varepsilon_i$$
+$\beta_1$ represents the expected point change in BMI per point change in average minutes spent on a screen holding other variables constant.
 
-$\beta_1$ 
-    represents the expected point change in kills per set per point change in assists per set.
-  
-$\beta_0$ 
-    represents the intercept or expected number of kills per set if we had a team with 0 assists per set. In a sports organization with players playing at the highest caliber, players will be making assists in a game, so this statistic holds no practical relevance.
-  
-  $\epsilon_i$ represents independent, uncorrelated, normally distributed error terms with mean 0 and constant variance $\sigma^2$
-  
-  $X_i$ represents the $i^{th}$ team's assists per set as a predictor in the model.
-  
-  $Y_i$ represents the $i^{th}$ team's kills per set as a response in the model.
-  
- 
- We implement the analysis using R [@r_language]. Visual aid was done in ggplot2 [@ggplot]. Tables were done with aid from knitr [@knitr].
+$\beta_2$ represents the expected point change in BMI per point change in age while holding other variables constant.
 
-```{r fig-summ-table}
-#| warning: false
-#| message: false
-#| echo: false
-#| fig-cap: "Summary Table of Volleyball Model"
-vb_model=lm(data=vb_data,vb_data$kills_per_set~vb_data$assists_per_set)
-summary = summary(vb_model)
-summarycoef = summary$coefficients
-rownames(summarycoef) = c("β₁","β₀")
-colnames(summarycoef)=c("Estimate","Standard Error", "t-value", "P-Value")
-kable(summarycoef)
+$\beta_3$ represents the expected point change in BMI for a male while holding other variables constant.
+
+$\beta_4$ represents the expected point change in BMI per point change in log household income while holding other variables constant.
+
+$X_ji$ represents the $i^{th}$ adolescent's $j^{th}$ predictor in the model.
+  
+$Y_i$ represents the $i^{th}$ adolescent's BMI as a response in the model.
+  
+$\epsilon_i$ represents independent, uncorrelated, normally distributed error terms with mean 0 and constant variance $\sigma^2$.
+
+
+```{r}
+#plot(bmi_fit,which=2)
+```
+
+Initial visualizations of the errors showed no clear violations of homoskedasticity. A visual of the qqplot shows tails at the end of the qqplots, which is an indication of a violation in the normality of errors. With a high enough sample size, this doesn't present as a problem at this time.
+
+We compare the base model with the full model.
+$$Y_i = \beta_0 +\beta_1 X_{1i} + \beta_2 X_{2i} + \beta_3 X_{3i} + \beta_4 ln(X_{4i}) +\beta_5 X_{5i}+\beta_6 X_{6i} +\beta_7 X_{7i} + \varepsilon_i$$  
+$\beta_5$ represents the expected point change in BMI per point change in average minutes spent exercising while holding other variables constant.
+
+$\beta_6$ represents the expected point change in BMI per point change in average minutes spent sedentary while holding other variables constant.
+
+$\beta_7$ represents the expected point change in BMI per point change in average hours spent asleep while holding other variables constant.
+
+We attempt boxcox transformation in order to justify an appropriate transformation for better prediction.
+
+Boxcox transformations take the form
+$$y_i^{(\lambda)}=\frac{y_i^\lambda-1}{\lambda}$$
+when $\lambda \neq 0$, and
+$$y_i^{(\lambda)}=ln(y_i)$$
+when $\lambda=0$.
+
+
+```{r}
+bc_result=boxcox(bmi_fit)
+optimal_lambda_index = which.max(bc_result$y)
+bc_result$x[optimal_lambda_index]
+```
+Boxcox transformation found the optimal result to be $\lambda = \frac{-2}{3}$. 
+
+This corresponds to a transformation of the form $\frac{1}{\sqrt Y}$.
+
+Therefore, we can compare model performance of both the transformed base and full models.
+Transformed base model:
+$$ \frac{1}{\sqrt{Y_i}} = \beta_0 +\beta_1 X_{1i} + \beta_2 X_{2i} + \beta_3 X_{3i} + \beta_4 ln(X_{4i}) + \varepsilon_i$$
+```{r}
+tbmi_fit=lm((1/sqrt(bmi))~screeTIME+age+gender+lnincome, data = bmi_data)
+#plot(tbmi_fit)
+```
+Transformed full model:
+$$\frac{1}{\sqrt{Y_i}} = \beta_0 +\beta_1 X_{1i} + \beta_2 X_{2i} + \beta_3 X_{3i} + \beta_4 ln(X_{4i}) +\beta_5 X_{5i}+\beta_6 X_{6i} +\beta_7 X_{7i} + \varepsilon_i$$  
+
+We implement Ridge and LASSO regression, both of which introduces a tuning parameter $\lambda$ that penalizes additional parameter terms. We select $\lambda$ and use k-fold cross validation with 10 folds.
+
+For ridge regression, we select parameter values that minimize
+
+$$\sum_{i=1}^n(\mathbf{Y}_i-\mathbf{X}_i^T\mathbf{\beta})^2+\lambda\sum_{j=1}^{p-1}\mathbf{\beta}_j^2$$
+For LASSO regression, we select parameter values that minimize
+
+$$\sum_{i=1}^n(\mathbf{Y}_i-\mathbf{X}_i^T\mathbf{\beta})^2+\lambda\sum_{j=1}^{p-1}\lvert\mathbf{\beta}_j\rvert$$
+where $\lambda$ is a tuning parameter. LASSO essentially performs variable selection by penalizing parameter values to 0. Since ridge regression found the best performing lambda value $=0$, we drop the model since it is statistically the same as the full model. LASSO found $\lambda$=.5.
+```{r}
+train_control <- trainControl(method = "cv", number = 10,savePredictions="final")
+r_model = train(bmi~screeTIME+age+gender+lnincome+t_exe+all_seditry+sleep, data = bmi_data, method = "ridge", trControl = train_control)
+l_model = train(bmi~screeTIME+age+gender+lnincome+t_exe+all_seditry+sleep, data = bmi_data, method = "lasso", trControl = train_control)
 
 ```
 
-We attempt a two-tailed hypothesis test for $\beta_1$ with $\alpha=0.05$ in @fig-summ-table:
+By performing k-fold cross validation, we can estimate model performance by comparing RMSE and $R^2$ values.
+```{r}
+b_model = train(bmi~screeTIME+age+gender+lnincome, data = bmi_data, method = "lm", trControl = train_control)
+f_model = train(bmi~screeTIME+age+gender+lnincome+t_exe+all_seditry+sleep, data = bmi_data, method = "lm", trControl = train_control)
+bt_model = train((1/sqrt(bmi))~screeTIME+age+gender+lnincome, data = bmi_data, method = "lm", trControl = train_control)
+ft_model = train((1/sqrt(bmi))~screeTIME+age+gender+lnincome+t_exe+all_seditry+sleep, data = bmi_data, method = "lm", trControl = train_control)
+fti_model = train((1/sqrt(bmi))~screeTIME+age+gender+lnincome+t_exe+all_seditry+sleep+screeTIME*t_exe+screeTIME*sleep, data = bmi_data, method = "lm", trControl = train_control)
+lti_model = train(1/sqrt(bmi)~screeTIME+age+gender+lnincome, data = bmi_data, method = "lasso", trControl = train_control)
 
+#For RMSE, switching for each model
+#print(b_model)
+#print(f_model)
+#print(bt_model)
+#print(ft_model)
+#print(fti_model)
+#print(l_model)
+#print(lti_model)
 
-$$H_0: \beta_1=0$$
-
-$$H_a: \beta_1\neq 0$$
-
-The slope parameter $b_1 = 1.023$, meaning that the model estimates that for each
-point change in assists, the expected point total should change by 1.023.
-The intercept parameter $b_0 = 0.596$, meaning that for 0 assists, the expected amount
-of points a team would have would be 0.596.
-
-Since our p value in @fig-summ-table P(t<134.201)= 2.642e-291 is much smaller than our $\alpha=0.05$, we can reject the null hypothesis, meaning that there is statistically significant evidence of a relationship between assists and kills. Note that in @fig-summ-table we have obtained a value of 0, meaning that the value is so low that R cannot reasonably show the number in its entirety. We note that since the number is so low, the chances of a true linear relationship between the two variables is so high that a hypothesis test is almost not needed to confirm it.
-$R^2 = .9819$, meaning that our model explains about 98.19% of variation in our sample.
-This is a good indicator that our model is performing well.
-
-In order for our linear model to hold, we make certain assumptions: our data must be valid for our research question, our sample needs to adequately represent our population of interest, we require a linear relationship to make sense between our predictor and response variable, independence of errors, equal variance of errors, and normality of errors, which we will address with a plot between our x and y, scatterplot of residuals versus fitted values, and a normal qqplot.
-
-Validity and representativeness of our population of interest of our data is satisfied by design of our experiment, since it was built around our data.
-Independence of the errors is satisfied by design of the data, since each team appears only once
-and is recorded independently of the others.
-
-```{r fig-linear-model}
-#| warning: false
-#| message: false
-#| echo: false
-#| fig-cap: "Scatterplot of Volleyball Kills per Set and Volleyball Assists per Set with Fitted Linear Regression Model"
-ggplot(data=vb_data,aes(x=assists_per_set,y=kills_per_set)) +
-  geom_point() +
-  labs(title = "Volleyball Kills as Explained by Assists",
-       subtitle= "Data from Female NCAA Teams",
-       x = "Assists per Set",
-       y = "Kills per Set")+
-  geom_abline(slope = vb_model$coefficients[2], 
-              intercept = vb_model$coefficients[1],
-              color="red")
+#For Untransformed RMSE
+preds=lti_model$pred #Switching for each model
+sqrt(mean((preds$pred^(-2)-preds$obs^(-2))^2))
 ```
-A violation of linearity would mean that fitting a simple linear regression would not make sense for our data, and that we would need to attempt to transform or consider other models. Observing the scatterplot in @fig-linear-model between volleyball kills per set and assists per set confirms that a linear relationship between our predictor and response variable would be valid. The red line represents the expected value of kills per set for a team with a given number of assists per set.
+Base Model: 
+RMSE 4.4538 $R^2$ .1331
 
-```{r fig-fitted-residual}
-#| warning: false
-#| message: false
-#| echo: false
-#| fig-cap: "Residuals vs Fitted Values Plot"
-ggplot(data=vb_model,aes(x=vb_model$fitted.values,y=vb_model$residuals)) +
-  geom_point() +
-  labs(title = "Residuals vs Fitted Values",
-       y = "Residuals",
-       x = "Fitted Values")
+Full Model: 
+RMSE 4.4943 $R^2$ .1103
 
-```
-A violation of the assumption of equal variances would make the hypothesis test and its associated p-value unreliable, as OLS becomes inefficient with our parameter estimates. An observation of the residuals versus the fitted values in @fig-fitted-residual revealed that our assumption of equal variance has been upheld.
+Transformed Base Model: 
+RMSE 0.0220 Un-transformed RMSE 4.4648 $R^2$ 0.1324
 
-```{r fig-qq-plot}
-#| warning: false
-#| message: false
-#| echo: false
-#| fig-cap: "QQ-Plot of Residuals"
-qqnorm(vb_model$residuals)
-qqline(vb_model$residuals)
-```
+Inverse Square Root Transformed Full Model:
+RMSE 0.0222 Un-transformed RMSE 4.5681 $R^2$ 0.0173
 
-A major violation of normality of errors would bias the parameter estimates, providing an unreliable p-value. A quantile-quantile plot in @fig-qq-plot comparing the distribution of our values to a normal distribution revealed a large tail at the right end, signifying that there were more values on the extreme than expected under a theoretical normal distribution, represented by the line drawn. This violates the assumption of normally distributed errors, but since our sample size is sufficient enough to overlook this, we can safely continue.
+Inverse Square Root Transformed Full Model with Interaction between screentime and exercise, screentime and sleep:
+RMSE 0.0229 Un-transformed RMSE 4.7318 $R^2$ 0.0176
 
+LASSO with $\lambda=0.5$:
+RMSE 4.4751 $R^2$ 0.1257
+
+LASSO with Inverse Square Root Transformation and $\lambda=0.9$:
+RMSE 0.0220 Un-transformed RMSE 4.5668 $R^2$ 0.1448
+
+ We implement the analysis using R [@r_language].
 
 # Results
 
-We have the results of our two-tailed t-test on our parameter $\beta_1$. In order 
-There is a positive correlation between the number of assists a team makes and the number of kills a team gets. In our model, each additional assist is expected to land us an additional $b_1=1.023$ kills. Our assumption of normality seems to have been broken by our quantile-quantile plot. This is potentially due to multiple factors, such as the idea that our values are mostly on the extreme right end of the data, which may have to do with the idea that many of these teams play at a high level, so higher values of assists and kills may have a higher probability of appearing than lower values. This violation is not a large departure from normality, and we have a large sample size (344), therefore we can argue that this departure does not create any serious problems for our model. 
- 
+We compare OLS vs Transformation vs LASSO while including interaction terms. As it turns out, the simplest model found the best root mean square error using cross validation, with RMSE 4.4538. LASSO with an inverse square root transformation and $\lambda=0.9$ found the highest $R^2$ value of .1448. 
  
 # Discussion
+It is important to note that this survey data is not completely reliable. For example, the time in minutes recorded is most likely approximated and not the actual time spent doing various activities (eg., sleeping, screen time, physical activity). As discussed in the data section, we could not 
 
-We are aware that this data only covers D1 women's NCAA athletes, which excludes all
-men, recreational, a co-ed players, as well as any lower division women's teams. Also,
-we can only make statistical inferences on D1 women's teams, since the data does not
-magnify into individual players.
-The fact that a kill must be present for an assist to be counted in this dataset may serve as evidence to an obvious correlation between the two variables, so future analyses should investigate "passes and sets that do not result in kills."
-
-
-
-
+(Previous study uses internet use Y/N while we use screentime as main predictor.) REMOVE LATER
 # References
 
