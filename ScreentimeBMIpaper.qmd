@@ -193,7 +193,7 @@ $$ \frac{1}{\sqrt{Y_i}} = \beta_0 +\beta_1 X_{1i} + \beta_2 X_{2i} + \beta_3 X_{
 
 ### Inverse Square Root Transformed Full Model:
 $$\frac{1}{\sqrt{Y_i}} = \beta_0 +\beta_1 X_{1i} + \beta_2 X_{2i} + \beta_3 X_{3i} + \beta_4 ln(X_{4i}) +\beta_5 X_{5i}+\beta_6 X_{6i} +\beta_7 X_{7i} + \varepsilon_i$$  
-Where $Y_i$ is transformed, so each slope interpretation $\beta$ is modified to an expected inverse square root point change in BMI.
+Where $Y_i$ is transformed, so each slope interpretation $\beta$ is modified to an expected inverse square root point change in BMI, holding all other variables constant.
 
 
 ## Ridge and LASSO Models 
@@ -228,6 +228,7 @@ $$RMSE_{adj}=\sqrt{\frac{1}{m}\sum_{j=1}^m(Y_{j}^{-2}-\hat{Y}_{j}^{-2})^2}$$
 We also take a look at the coefficient of multiple determination, or $R^2$ to assess the model performance, which is the proportionate reduction in variation in Y associated with the use of a particular model.
 $$R^2=\frac{SSR}{SSTO}$$
 
+Where SSR is the sum of squares regression and SSTO is the total sum of squares.
 ```{r}
 #| include: false
 #| warning: false
@@ -283,10 +284,10 @@ kable(sumtable)
 The table of RMSE and $R^2$ values shows that the base model performed the best in terms of RMSE, and the inverse transformed base model performed the best in terms of $R^2$. The full model without any additional methods resulted in an RMSE of 4.4742 and an $R^2$ of 0.0916. Adding interaction terms to the full model increased RMSE by 0.0029 and decreased $R^2$ by 0.0011. Adding an inverse transformation to the base model increased RMSE by 0.0424 when adjusted for transformation for the base model. The LASSO model improved upon the full model, decreasing RMSE by 0.0457 and increasing $R^2$ by 0.0203.
 
 ## Final Model
-We compare OLS vs Transformation vs LASSO while including interaction terms. As it turns out, the simplest model found the best root mean square error using cross validation, with RMSE 4.4212 and $R^2$ 0.11. Using other methods with the full model performed worse, with only slightly increased performance in $R^2$. We choose the base model because it sacrifices the least in interpretability while also maintaining relatively similar performance. The estimated intercept term is 10.2, which has little interpretability, but is technically possible: a female child born within the year that has no screen time and no family income. The estimated slope parameter for screen time is -.0013, which represents an expected -0.0013 change in BMI for each additional point change in screen time, holding all other variables constant. The estimated slope parameter for age is 0.6395, meaning that for each point change in age, the expected increase in BMI is .6395, holding all other variables constant. The estimated slope parameter for gender is .7414, meaning that for a boy, the expected BMI is to be increased by .7414, holding all other variables constant. The estimated slope parameter for log income is 0.089, meaning that for each point increase in log income, BMI is expected to raise by 0.089, holding all other variables constant.
+We compare OLS vs Transformation vs LASSO while including interaction terms. As it turns out, the simplest model found the best root mean square error using cross validation, with RMSE 4.4212 and $R^2$ 0.11. Using other methods with the full model performed worse, with only slightly increased performance in $R^2$. It is important to note that the RMSE minimally changed between models, so each method only slightly changes performance. We choose the base model because it sacrifices the least in interpretability while also maintaining relatively similar performance. The estimated intercept term is 10.2, which has little interpretability, but is technically possible: a female child born within the year that has no screen time and no family income. The estimated slope parameter for screen time is -.0013, which represents an expected -0.0013 change in BMI for each additional point change in screen time, holding all other variables constant. The estimated slope parameter for age is 0.6395, meaning that for each point change in age, the expected increase in BMI is .6395, holding all other variables constant. The estimated slope parameter for gender is .7414, meaning that for a boy, the expected BMI is to be increased by .7414, holding all other variables constant. The estimated slope parameter for log income is 0.089, meaning that for each point increase in log income, BMI is expected to raise by 0.089, holding all other variables constant.
  
 # Discussion {#sec-discussion}
-Since all models performed rather poorly, we conclude that for our analysis, we could not accurately predict BMI using screentime, age, sex, income, exercise time, sedentary time, and age. Since the RMSE values were all greater than 4, and the BMI ranges for underweight, healthy, overweight, and obese are all around 6.5, our models have a strong likelihood of misclassifying a healthy adolescent as overweight and vice versa.
+Although we have selected a model that most accurately predicts bmi, since all of the $R^2$ values for our models were low, all models performed rather poorly. We conclude that for our analysis, we could not accurately predict BMI using screentime, age, sex, income, exercise time, sedentary time, sleep time, and age. Since the RMSE values were all greater than 4, and the BMI ranges for underweight, healthy, overweight, and obese are all around 6.5, our models have a strong likelihood of misclassifying, for example a healthy adolescent as overweight.
 [@ma_effect_2024] used a binary variable as their main predictor in their empirical analysis, while the extension done by this paper uses a continuous variable, screen time. This distinction could explain the negative coefficient found for screen time, whereas in the previous study, internet use was found to significantly increase BMI.
 
 ## Potential Weaknesses and Extensions
