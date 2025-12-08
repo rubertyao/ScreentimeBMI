@@ -5,12 +5,15 @@ author: "Robert Yav"
 thanks: "Project repository available at: [https://github.com/rubertyao/ScreentimeBMI]"
 date: today
 date-format: long
-abstract: "As the screens used to browse the internet become more widespread within the modern era, tt may be of interest to predict BMI using screen time, controlling for factors such as age, gender, and household income. We explore the use of other predictor variables to more accurately predict BMI. We source data from the China Health and Nutrition Survey (CNHS) published in 2019, and motivation from a 2024 paper by Ma J. and Shang L. on the effect of internet use on body weight in Chinese adolescents. The sample is taken from a survey of Chinese adolescents and their demographic and health data. Three main approaches were used: OLS regression using a full and base model, a transformed model, and LASSO regression. The base model performed the most favorably among the variations. "
+abstract: "As the screens used to browse the internet become more widespread within the modern era, tt may be of interest to predict BMI using screen time, controlling for factors such as age, gender, and household income. We explore the use of other predictor variables to more accurately predict BMI. We source data from the China Health and Nutrition Survey (CNHS) published in 2019, and motivation from a 2024 paper by Ma J. and Shang L. on the effect of internet use on body weight in Chinese adolescents. The sample is taken from a survey of Chinese adolescents and their demographic and health data. Three main approaches were used: OLS regression using a full and base model, a transformed model, and LASSO regression. The LASSO model performed the most favorably among the variations, but the base model was the final model chosen. "
 format: 
   pdf:
     fig-pos: "H"
+    number-sections: true
 bibliography: references.bib
-
+editor: 
+  markdown: 
+    wrap: 72
 ---
 
 ```{r}
@@ -24,53 +27,132 @@ library(caret)
 library(MASS)
 library(ggplot2)
 library(patchwork)
+library(glmnet)
+set.seed(123)
 ```
 
 # Introduction
 
-As the world develops, internet infrastructure and its penetration has increased dramatically in the past few decades. Screens have become commonplace, and it is not rare to see even children glued to their screens in public. [@ma_effect_2024] raises concerns about this observation, claiming that a rise in internet use has significantly increased BMI and obesity rates in Chinese adolescents. A healthy BMI for an adult is 18.5-24.9, underweight is below 18.5, overweight is 25-29.9, and obese is 30.0 and above. For adolescents, BMI is calculated the same, but is interpreted differently by comparing BMI to other adolescents of the same age. According to the aforementioned study, one of the hypotheses claim internet use would increase sedentary activities, mainly screen time. This claim leads to the motivation of this project: How can screen time and other lifestyle factors predict BMI, controlling for age, gender, and household income? This project examines the relationship between BMI and combined screen time for Chinese adolescents in 2015, controlling for external factors like age, sex, and income. We then go on to include additional potential variables, gathered from the hypotheses initially put forth by [@ma_effect_2024], adding three new predictors, time spent exercising, time spent sedentary, and time spent asleep. This paper builds on their limitations, addressing an important point that their predictions had not accounted for the intensity of time spent with physical and sedentary activities. Using time spent on a screen, time spent exercising, time spent sedentary, and time spent asleep as predictors, and age, sex, and income as control variables, we attempt to predict BMI scores for adolescents located in China in 2015. We go ahead and build and compare three main branches of models: OLS, Inverse Square Root Transformation, and LASSO regression. To compare model performance, we used k fold-cross validation and took average RMSE and $R^2$ across 10 folds for each model. The base model with none of the additional predictors performed the best, implying that additional methods were not necessary in improving prediction. All models had unsatisfactory performance.
+As the world develops, internet infrastructure and its penetration has
+increased dramatically in the past few decades. Screens have become
+commonplace, and it is not rare to see even children glued to their
+screens in public. [@ma_effect_2024] raises concerns about this
+observation, claiming that a rise in internet use has significantly
+increased BMI and obesity rates in Chinese adolescents. A healthy BMI
+for an adult is 18.5-24.9, underweight is below 18.5, overweight is
+25-29.9, and obese is 30.0 and above. For adolescents, BMI is calculated
+the same, but is interpreted differently by comparing BMI to other
+adolescents of the same age. According to the aforementioned study, one
+of the hypotheses claim internet use would increase sedentary
+activities, mainly screen time. This claim leads to the motivation of
+this project: How can screen time and other lifestyle factors predict
+BMI, controlling for age, gender, and household income? This project
+examines the relationship between BMI and combined screen time for
+Chinese adolescents in 2015, controlling for external factors like age,
+sex, and income. We then go on to include additional potential
+variables, gathered from the hypotheses initially put forth by
+[@ma_effect_2024], adding three new predictors, time spent exercising,
+time spent sedentary, and time spent asleep. This paper builds on their
+limitations, addressing an important point that their predictions had
+not accounted for the intensity of time spent with physical and
+sedentary activities. Using time spent on a screen, time spent
+exercising, time spent sedentary, and time spent asleep as predictors,
+and age, sex, and income as control variables, we attempt to predict BMI
+scores for adolescents located in China in 2015. We go ahead and build
+and compare three main branches of models: OLS, Inverse Square Root
+Transformation, and LASSO regression. To compare model performance, we
+used k fold-cross validation and took average RMSE and $R^2$ across 10
+folds for each model. The model with the lowest RMSE was the LASSO model, but the final model chosen was the base model due to interpetation concerns.
 
-The remainder of the paper are as follows. @sec-data presents the data, @sec-methods presents the models used, @sec-results shows the results, and @sec-discussion discusses the implications of our findings.
-
-
-
+The remainder of the paper are as follows. @sec-data presents the data,
+@sec-methods presents the models used, @sec-results shows the results,
+and @sec-discussion discusses the implications of our findings.
 
 # Data {#sec-data}
 
-The data set used was sourced from [@ma_effect_2024] on Harvard Database which merged information from the CNHS in 2019 [@DVN/FTTF6A_2024]. This data set tracks survey information on adolescents from China from 2005 to 2015, surveying demographic, income, education, and health information. There were 3054 observations aged 11-19, 52% of which were male. For the purposes of this analysis, and due to limitations of scope, we limit the data set to 2015, which include 459 observations, 50% of which are female. Since many of the data points in time are divisible by 10, it is highly likely that the time predictors are rounded to the nearest hour or 10th minute. While this will reduce the accuracy of the model, it is still a good indicator of the intensity of time spent doing any particular activity. This also addresses a concern in [@ma_effect_2024], which used binary data to answer their question, not taking into account the intensity of how much internet a particular individual consumed in comparison with sleep and exercise. Initial data visualization dropped nine observations, two of which had NA values for household income and seven because of a survey inaccuracy that recorded more than 24 hours of screen or exercise time in a day. Since these values had no influence on the analysis, they could be removed for simplicity.
+The data set used was sourced from [@ma_effect_2024] on Harvard Database
+which merged information from the CNHS in 2019 [@DVN/FTTF6A_2024]. This
+data set tracks survey information on adolescents from China from 2005
+to 2015, surveying demographic, income, education, and health
+information. There were 3054 observations aged 11-19, 52% of which were
+male. For the purposes of this analysis, and due to limitations of
+scope, we limit the data set to 2015, which include 459 observations,
+50% of which are female. Since many of the data points in time are
+divisible by 10, it is highly likely that the time predictors are
+rounded to the nearest hour or 10th minute. While this will reduce the
+accuracy of the model, it is still a good indicator of the intensity of
+time spent doing any particular activity. This also addresses a concern
+in [@ma_effect_2024], which used binary data to answer their question,
+not taking into account the intensity of how much internet a particular
+individual consumed in comparison with sleep and exercise. Initial data
+visualization dropped nine observations, two of which had NA values for
+household income and seven because of a survey inaccuracy that recorded
+more than 24 hours of screen or exercise time in a day. Since these
+values had no influence on the analysis, they could be removed for
+simplicity.
 
-Looking through the data set, it is important to disclose that the merged data [@ma_effect_2024] provide to the Harvard Dataverse doesn't contain a data dictionary, and looking through the CNHS data sets do not have clear definitions for the obtained variable names either. This leads us to believe that the study renamed certain columns when merging the data sets, which have not been shared. However, we can infer what certain columns are due to their names and values. The main variables we use as a base model in our study is as follows:
+Looking through the data set, it is important to disclose that the
+merged data [@ma_effect_2024] provide to the Harvard Dataverse doesn't
+contain a data dictionary, and looking through the CNHS data sets do not
+have clear definitions for the obtained variable names either. This
+leads us to believe that the study renamed certain columns when merging
+the data sets, which have not been shared. However, we can infer what
+certain columns are due to their names and values. The main variables we
+use as a base model in our study is as follows:
 
 bmi: The Body Mass Index (BMI) of an adolescent.
 
-screen time: The average amount of combined screen time an adolescent receives, calculated from previous study by summing TV, video game, and computer screen times.
+screen time: The average amount of combined screen time an adolescent
+receives, calculated from previous study by summing TV, video game, and
+computer screen times.
 
 age: the age of an individual.
 
 gender: the gender of an individual.
 
-ln(income): the log scaled income of an individual's family. Since this is the only variable for income and is generally right skewed, it is best to leave this variable transformed.
+ln(income): the log scaled income of an individual's family. Since this
+is the only variable for income and is generally right skewed, it is
+best to leave this variable transformed.
 
 ## Hypotheses
- [@ma_effect_2024] make four hypotheses on what can increase body weight with internet use.
- By using these hypotheses, we can obtain potential variables that can be used in variable selection to improve prediction accuracy in our model.
- 
+
+[@ma_effect_2024] make four hypotheses on what can increase body weight
+with internet use. By using these hypotheses, we can obtain potential
+variables that can be used in variable selection to improve prediction
+accuracy in our model.
+
 ### Hypothesis 1: Internet use increases the body weight in adolescents through sedentary activities.
 
-exercise time: The average amount of combined physical activity, in exercise time, calculated in minutes.
+exercise time: The average amount of combined physical activity, in
+exercise time, calculated in minutes.
 
-sedentary time: The average amount of combined sedentary activity time, calculated in minutes.
- 
+sedentary time: The average amount of combined sedentary activity time,
+calculated in minutes.
+
 ### Hypothesis 2: Internet use increases the body weight by crowding out sleep time.
 
 sleep time: The average amount of sleep time, calculated in hours.
- 
+
 ### Hypothesis 3: Internet use increases the body weight through adverse health behaviors.
- This includes health education, along with alcohol and cigarette consumption. Following exploratory analysis, the variables associated with alcohol and cigarette consumption contain mainly N/A values, which raises issues in the analysis. Since it is illegal for a child to smoke or drink in China, and the legal drinking and smoking age is above the age limit for the average child in the study, it is likely that the values obtained do not accurately represent the population. For health, since there is no data dictionary and the health variable seems to be an arbitrary score, it is in the analysis' best interest to leave it out of prediction, pending further clarification from the original study. Due to these concerns, we drop this hypothesis for future studies to consider.
- 
+
+This includes health education, along with alcohol and cigarette
+consumption. Following exploratory analysis, the variables associated
+with alcohol and cigarette consumption contain mainly N/A values, which
+raises issues in the analysis. Since it is illegal for a child to smoke
+or drink in China, and the legal drinking and smoking age is above the
+age limit for the average child in the study, it is likely that the
+values obtained do not accurately represent the population. For health,
+since there is no data dictionary and the health variable seems to be an
+arbitrary score, it is in the analysis' best interest to leave it out of
+prediction, pending further clarification from the original study. Due
+to these concerns, we drop this hypothesis for future studies to
+consider.
+
 ### Hypothesis 4: Internet use increases the body weight through food consumption behavior.
- This includes junk food, tv, vegetable, and fruit food consumption scores. Since these scores also contain majority null values, we drop this hypothesis for future studies as well.
- 
+
+This includes junk food, tv, vegetable, and fruit food consumption
+scores. Since these scores also contain majority null values, we drop
+this hypothesis for future studies as well.
 
 ```{r fig-visualization}
 #| warning: false
@@ -115,62 +197,87 @@ p4 = ggplot(bmi_data, aes(x = all_seditry, y = bmi)) +
 (p1 | p2) / (p3 | p4)
 ```
 
-
-
 # Methods {#sec-methods}
 
 ## Base Model
+
 We fit the base multiple linear regression model:
 $$Y_i = \beta_0 +\beta_1 X_{1i} + \beta_2 X_{2i} + \beta_3 X_{3i} + \beta_4 ln(X_{4i}) + \varepsilon_i$$
 $\beta_0$ Intercept
 
-$\beta_1$ represents the expected point change in BMI per point change in minutes spent on a screen a day holding other variables constant.
+$\beta_1$ represents the expected point change in BMI per point change
+in minutes spent on a screen a day holding other variables constant.
 
-$\beta_2$ represents the expected point change in BMI per point change in age while holding other variables constant.
+$\beta_2$ represents the expected point change in BMI per point change
+in age while holding other variables constant.
 
-$\beta_3$ represents the expected point change in BMI for a male while holding other variables constant.
+$\beta_3$ represents the expected point change in BMI for a male while
+holding other variables constant.
 
-$\beta_4$ represents the expected point change in BMI per point change in log household income while holding other variables constant.
+$\beta_4$ represents the expected point change in BMI per point change
+in log household income while holding other variables constant.
 
-$X_{ji}$ represents the $i^{th}$ adolescent's $j^{th}$ predictor in the model.
-Therefore, $X_{1i}$ is the $i^{th}$ adolescent's minutes in screen time, $X_{2i}$ is the $i^{th}$ adolescent's age, $X_{3i}$ is the $i^{th}$ adolescent's gender,and $X_{4i}$ is the $i^{th}$ adolescent's log household income.
-  
-$Y_i$ represents the $i^{th}$ adolescent's BMI as a response in the model.
-  
-$\epsilon_i$ represents independent, uncorrelated, normally distributed error terms with mean 0 and constant variance $\sigma^2$.
+$X_{ji}$ represents the $i^{th}$ adolescent's $j^{th}$ predictor in the
+model. Therefore, $X_{1i}$ is the $i^{th}$ adolescent's minutes in
+screen time, $X_{2i}$ is the $i^{th}$ adolescent's age, $X_{3i}$ is the
+$i^{th}$ adolescent's gender,and $X_{4i}$ is the $i^{th}$ adolescent's
+log household income.
 
-Initial visualizations of the errors showed no clear violations of homoskedasticity. A visual of the qqplot shows tails at the end of the qqplots, which is an indication of a violation in the normality of errors. With a high enough sample size, this doesn't present as a problem at this time. Since our goal is prediction, the assumption we care about the most is linearity, which upon closer look using a residual vs fitted values plot, shows no violation.
+$Y_i$ represents the $i^{th}$ adolescent's BMI as a response in the
+model.
+
+$\epsilon_i$ represents independent, uncorrelated, normally distributed
+error terms with mean 0 and constant variance $\sigma^2$.
+
+For inference, initial visualizations of the errors showed no clear
+violations of homoskedasticity. A visual of the qqplot shows tails at
+the end of the qqplots, which is an indication of a violation in the
+normality of errors. With a high enough sample size, this doesn't
+present as a problem at this time. Since our goal is prediction, the
+assumption we care about the most is linearity, which upon closer look
+using a residual vs fitted values plot, shows no clear violation.
 
 ## Full Model
 
 We compare the base model with the full model.
-$$Y_i = \beta_0 +\beta_1 X_{1i} + \beta_2 X_{2i} + \beta_3 X_{3i} + \beta_4 ln(X_{4i}) +\beta_5 X_{5i}+\beta_6 X_{6i} +\beta_7 X_{7i} + \varepsilon_i$$  
-$\beta_5$ represents the expected point change in BMI per point change in minutes spent exercising a day while holding other variables constant.
+$$Y_i = \beta_0 +\beta_1 X_{1i} + \beta_2 X_{2i} + \beta_3 X_{3i} + \beta_4 ln(X_{4i}) +\beta_5 X_{5i}+\beta_6 X_{6i} +\beta_7 X_{7i} + \varepsilon_i$$\
+$\beta_5$ represents the expected point change in BMI per point change
+in minutes spent exercising a day while holding other variables
+constant.
 
-$\beta_6$ represents the expected point change in BMI per point change in spent sedentary a day while holding other variables constant.
+$\beta_6$ represents the expected point change in BMI per point change
+in spent sedentary a day while holding other variables constant.
 
-$\beta_7$ represents the expected point change in BMI per point change in hours spent asleep a day while holding other variables constant.
+$\beta_7$ represents the expected point change in BMI per point change
+in hours spent asleep a day while holding other variables constant.
 
-$X_{5i}$ is the $i^{th}$ adolescent's minutes spent exercising, $X_{6i}$ is the $i^{th}$ adolescent's minutes spent sedentary, and $X_{7i}$ is the $i^{th}$ adolescent's hours spent asleep.
+$X_{5i}$ is the $i^{th}$ adolescent's minutes spent exercising, $X_{6i}$
+is the $i^{th}$ adolescent's minutes spent sedentary, and $X_{7i}$ is
+the $i^{th}$ adolescent's hours spent asleep.
 
 ### Full Model with Interactions
 
-We consider interactions between time spent on a screen with time spent exercising and time spent sleeping. We consider these interactions because Hypothesis 1 and 2 from [@ma_effect_2024] reason that higher screen time "crowds out" potential time spent sleeping and exercising, thereby reducing their respective totals and increasing weight gain.
+We consider interactions between time spent on a screen with time spent
+exercising and time spent sleeping. We consider these interactions
+because Hypothesis 1 and 2 from [@ma_effect_2024] reason that higher
+screen time "crowds out" potential time spent sleeping and exercising,
+thereby reducing their respective totals and increasing weight gain.
 
 We consider the model
-$$Y_i = \beta_0 +\beta_1 X_{1i} + \beta_2 X_{2i} + \beta_3 X_{3i} + \beta_4 ln(X_{4i}) +\beta_5 X_{5i}+\beta_6 X_{6i} +\beta_7 X_{7i}+\beta_8(X_{1i}X_{6i})+\beta_9(X_{1i}X_{7i}) + \varepsilon_i$$  
-Where $\beta_8$ represents the interaction effect between minutes spent on a screen and minutes spent exercising and $\beta_9$ represents the interaction effect between minutes spent on a screen and hours spent sleeping.
+$$Y_i = \beta_0 +\beta_1 X_{1i} + \beta_2 X_{2i} + \beta_3 X_{3i} + \beta_4 ln(X_{4i}) +\beta_5 X_{5i}+\beta_6 X_{6i} +\beta_7 X_{7i}+\beta_8(X_{1i}X_{6i})+\beta_9(X_{1i}X_{7i}) + \varepsilon_i$$\
+Where $\beta_8$ represents the interaction effect between minutes spent
+on a screen and minutes spent exercising and $\beta_9$ represents the
+interaction effect between minutes spent on a screen and hours spent
+sleeping.
 
 ## Inverse Square Root Transformed Models
 
-We attempt boxcox transformation in order to justify an appropriate transformation for better prediction.
+We attempt boxcox transformation in order to justify an appropriate
+transformation for better prediction.
 
 Boxcox transformations take the form
-$$y_i^{(\lambda)}=\frac{y_i^\lambda-1}{\lambda}$$
-when $\lambda \neq 0$, and
-$$y_i^{(\lambda)}=ln(y_i)$$
-when $\lambda=0$.
-
+$$y_i^{(\lambda)}=\frac{y_i^\lambda-1}{\lambda}$$ when $\lambda \neq 0$,
+and $$y_i^{(\lambda)}=ln(y_i)$$ when $\lambda=0$.
 
 ```{r}
 #| include: false
@@ -181,71 +288,92 @@ bc_result=boxcox(bmi_fit)
 optimal_lambda_index = which.max(bc_result$y)
 bc_result$x[optimal_lambda_index]
 ```
-Boxcox transformation found the optimal result to be $\lambda = \frac{-2}{3}$. 
+
+Boxcox transformation found the optimal result to be
+$\lambda = \frac{-2}{3}$.
 
 This corresponds to a transformation of the form $\frac{1}{\sqrt Y}$.
 
-Therefore, we can compare model performance of both the transformed base and full models.
+Therefore, we can compare model performance of both the transformed base
+and full models.
 
 ### Inverse Square Root Transformed Base Model:
+
 $$ \frac{1}{\sqrt{Y_i}} = \beta_0 +\beta_1 X_{1i} + \beta_2 X_{2i} + \beta_3 X_{3i} + \beta_4 ln(X_{4i}) + \varepsilon_i$$
 
-
 ### Inverse Square Root Transformed Full Model:
-$$\frac{1}{\sqrt{Y_i}} = \beta_0 +\beta_1 X_{1i} + \beta_2 X_{2i} + \beta_3 X_{3i} + \beta_4 ln(X_{4i}) +\beta_5 X_{5i}+\beta_6 X_{6i} +\beta_7 X_{7i} + \varepsilon_i$$  
-Where $Y_i$ is transformed, so each slope interpretation $\beta$ is modified to an expected inverse square root point change in BMI, holding all other variables constant.
 
+$$\frac{1}{\sqrt{Y_i}} = \beta_0 +\beta_1 X_{1i} + \beta_2 X_{2i} + \beta_3 X_{3i} + \beta_4 ln(X_{4i}) +\beta_5 X_{5i}+\beta_6 X_{6i} +\beta_7 X_{7i} + \varepsilon_i$$\
+Where $Y_i$ is transformed, so each slope interpretation $\beta$ is
+modified to an expected inverse square root point change in BMI, holding
+all other variables constant.
 
-## Ridge and LASSO Models 
+## LASSO Model
 
-We implement Ridge and Least Absolute Squares Selection Operator (LASSO) regression, both of which introduces a tuning parameter $\lambda$ that penalizes additional parameter terms. We select $\lambda$ and use k-fold cross validation with 10 folds. LASSO essentially performs variable selection by penalizing parameter values to 0.
+We implement Least Absolute Squares Selection Operator (LASSO)
+regression, which introduces a tuning parameter $\lambda$ that
+penalizes additional parameter terms. We select $\lambda$ and use k-fold
+cross validation with 10 folds. LASSO essentially performs variable
+selection by penalizing parameter values to 0.
 
-For ridge regression, we select parameter values that minimize
-
-$$\sum_{i=1}^n(\mathbf{Y}_i-\mathbf{X}_i^T\mathbf{\beta})^2+\lambda\sum_{j=1}^{p-1}\beta_j^2$$
 For LASSO regression, we select parameter values that minimize
 
 $$\sum_{i=1}^n(\mathbf{Y}_i-\mathbf{X}_i^T\mathbf{\beta})^2+\lambda\sum_{j=1}^{p-1}\lvert\beta_j\rvert$$
-where $\lambda$ is a tuning parameter. Since ridge regression found the best performing lambda value $=0$, we drop the model since it is statistically the same as the full model. LASSO found $\lambda$=.5.
+where $\lambda$ is a tuning parameter. LASSO found $\lambda=0.3$, and an Inverse Transformed LASSO found $\lambda=1$. Upon further inspection, the full model's choice of parameter $\lambda=0.3$ set almost all $\beta$ slope coefficients to 0 but age, and the transformed model's choice of $\lambda=1$ only leaves the intercept. While RMSE values are still reported in the final table, we drop LASSO from model consideration due to a lack of interpretability.
+
 ```{r}
 #| include: false
 #| warning: false
 #| message: false
 #| echo: false
-train_control <- trainControl(method = "cv", number = 10,savePredictions="final")
-r_model = train(bmi~screeTIME+age+gender+lnincome+t_exe+all_seditry+sleep, data = bmi_data, method = "ridge", trControl = train_control)
-l_model = train(bmi~screeTIME+age+gender+lnincome+t_exe+all_seditry+sleep, data = bmi_data, method = "lasso", trControl = train_control)
+lassoGrid = expand.grid(alpha=1,lambda=seq(0.1,1,by=.1))
+train_control = trainControl(method = "cv", number = 10, savePredictions="final")
+l_model = train(bmi~screeTIME+age+gender+lnincome+t_exe+all_seditry+sleep, data = bmi_data, method = "glmnet", tuneGrid=lassoGrid, trControl = train_control)
+lti_model = train(1/sqrt(bmi)~screeTIME+age+gender+lnincome, data = bmi_data, method = "glmnet", tuneGrid=lassoGrid, trControl = train_control)
 
+
+coef(l_model$finalModel,s=l_model$bestTune$lambda)
+coef(lti_model$finalModel,s=l_model$bestTune$lambda)
 ```
 
 ## Cross Validation
 
-By performing k-fold cross validation, we can estimate model performance by comparing RMSE and $R^2$ values.
-k-fold Cross validation splits the data into k folds, and uses all but one fold of our training data to fit the model, and uses the final fold to test the model and make predictions. The process is then repeated for all folds and the root mean squared error across k folds calculated is as follows, where Y is the observed value and $\hat{y}$ is the predicted value: 
-$$RMSE=\sqrt{\frac{1}{m}\sum_{j=1}^m(Y_{j}-\hat{Y}_{j})^2}$$
-In the cases where models used transformations on the response variable, it was necessary to transform the values back to compare RMSEs across untransformed and transformed values.
-$$RMSE_{adj}=\sqrt{\frac{1}{m}\sum_{j=1}^m(Y_{j}^{-2}-\hat{Y}_{j}^{-2})^2}$$
-We also take a look at the coefficient of multiple determination, or $R^2$ to assess the model performance, which is the proportionate reduction in variation in Y associated with the use of a particular model.
-$$R^2=\frac{SSR}{SSTO}$$
+By performing k-fold cross validation, we can estimate model performance
+by comparing RMSE and $R^2$ values. k-fold Cross validation splits the
+data into k folds, and uses all but one fold of our training data to fit
+the model, and uses the final fold to test the model and make
+predictions. The process is then repeated for all folds and the average
+fold root mean squared error across k folds calculated is as follows,
+where Y is the observed value and $\hat{y}$ is the predicted value:
+$$RMSE=\frac{1}{k}\sum_{i=1}^{k}\sqrt{\frac{1}{m}\sum_{j=1}^m(Y_{j}-\hat{Y}_{j})^2}$$
+In the cases where models used transformations on the response variable,
+it was necessary to transform the values back to compare RMSEs across
+untransformed and transformed values.
+$$RMSE_{adj}=\frac{1}{k}\sum_{i=1}^{k}\sqrt{\frac{1}{m}\sum_{j=1}^m(Y_{j}^{-2}-\hat{Y}_{j}^{-2})^2}$$
+We also take a look at the coefficient of multiple determination, or
+$R^2$ to assess the model performance, which is the proportionate
+reduction in variation in Y associated with the use of a particular
+model. $$R^2=\frac{SSR}{SSTO}$$
 
-Where SSR is the sum of squares regression and SSTO is the total sum of squares.
+Where SSR is the sum of squares regression and SSTO is the total sum of
+squares.
+
 ```{r}
 #| include: false
 #| warning: false
 #| message: false
 #| echo: false
+
 b_model = train(bmi~screeTIME+age+gender+lnincome, data = bmi_data, method = "lm", trControl = train_control)
 f_model = train(bmi~screeTIME+age+gender+lnincome+t_exe+all_seditry+sleep, data = bmi_data, method = "lm", trControl = train_control)
 fi_model = train(bmi~screeTIME+age+gender+lnincome+t_exe+all_seditry+sleep+screeTIME*t_exe+screeTIME*sleep, data = bmi_data, method = "lm", trControl = train_control)
 bt_model = train((1/sqrt(bmi))~screeTIME+age+gender+lnincome, data = bmi_data, method = "lm", trControl = train_control)
 ft_model = train((1/sqrt(bmi))~screeTIME+age+gender+lnincome+t_exe+all_seditry+sleep, data = bmi_data, method = "lm", trControl = train_control)
 fti_model = train((1/sqrt(bmi))~screeTIME+age+gender+lnincome+t_exe+all_seditry+sleep+screeTIME*t_exe+screeTIME*sleep, data = bmi_data, method = "lm", trControl = train_control)
-lti_model = train(1/sqrt(bmi)~screeTIME+age+gender+lnincome, data = bmi_data, method = "lasso", trControl = train_control)
-
 allmodels=list(b_model,f_model,fi_model,bt_model,ft_model,fti_model,l_model,lti_model)
 r2_models = sapply(allmodels, function(m) R2(m$pred$pred, m$pred$obs))
-rmse_models = sapply(allmodels, function(m) sqrt(mean((m$pred$obs-m$pred$pred)^2)))
-rmsea_models = sapply(allmodels, function(m) sqrt(mean((m$pred$obs^(-2)-m$pred$pred^(-2))^2)))
+rmse_models = sapply(allmodels, function(m) mean(sapply(split(m$pred,m$pred$Resample), function(n) sqrt(mean((n$obs - n$pred)^2)))))
+rmsea_models =sapply(allmodels, function(m) mean(sapply(split(m$pred,m$pred$Resample), function(n) sqrt(mean((n$obs^(-2) - (n$pred)^(-2))^2)))))
 rmsea_models = ifelse(rmsea_models<4,0,rmsea_models)
 r2_models = sapply(r2_models, function(m) round(m,4))
 rmse_models = sapply(rmse_models, function(m) round(m,4))
@@ -256,22 +384,37 @@ sumtable = tibble(
   RMSEadj= rmsea_models,
   RSquared = r2_models
 )
-sumtable
 
 ```
 
-
 ## Limitations of Analysis
-It is important to note that this survey data is not completely reliable. For example, the time in minutes recorded is most likely approximated and not the actual time spent doing various activities (eg., sleeping, screen time, physical activity). 
-A null value majority in the smoking, drinking, and food consumption categories have prevented the use of those variables in the model, but can likely be imputed with estimates which fall outside of the scope of this analysis.
-[ma_effect_2024] uses the full dataset, which includes data from 2005-2015. Since the scope of the analysis is only on 2015, a majority of the information in the dataset is lost. Additionally, no data dictionary has been supplied, therefore many of the variable values needed to be interpreted, since some of the merged variable names have been renamed by the study and definitions of them are not available on the Harvard Database or the CHS database.
 
+It is important to note that this survey data is not completely
+reliable. For example, the time in minutes recorded is most likely
+approximated and not the actual time spent doing various activities
+(eg., sleeping, screen time, physical activity). A null value majority
+in the smoking, drinking, and food consumption categories have prevented
+the use of those variables in the model, but can likely be imputed with
+estimates which fall outside of the scope of this analysis.
+\[ma_effect_2024\] uses the full dataset, which includes data from
+2005-2015. Since the scope of the analysis is only on 2015, a majority
+of the information in the dataset is lost. Additionally, no data
+dictionary has been supplied, therefore many of the variable values
+needed to be interpreted, since some of the merged variable names have
+been renamed by the study and definitions of them are not available on
+the Harvard Database or the CHS database.
 
 ## Software
- We implement the analysis using R [@r_language]. Plots done with [@ggplot] and [@patchwork]. Data manipulation done with [@tidyverse]. Boxcox transformations done with [@MASS]. Predictive modeling and cross validation done with [@caret]. Tables done with [@knitr]. 
+
+We implement the analysis using R [@r_language]. Plots done with
+[@ggplot] and [@patchwork]. Data manipulation done with [@tidyverse].
+Boxcox transformations done with [@MASS]. Predictive modeling and cross
+validation done with [@caret]. Lasso and Ridge Regression done with [@glmnet] Tables done with [@knitr].
 
 # Results {#sec-results}
-Below is a table to the cross validation results for every model considered in the final model selection.
+
+Below is a table to the cross validation results for every model
+considered in the final model selection.
 
 ```{r fig-sumtable}
 #| warning: false
@@ -281,21 +424,73 @@ Below is a table to the cross validation results for every model considered in t
 kable(sumtable)
 ```
 
-The table of RMSE and $R^2$ values shows that the base model performed the best in terms of RMSE, and the inverse transformed base model performed the best in terms of $R^2$. The full model without any additional methods resulted in an RMSE of 4.4742 and an $R^2$ of 0.0916. Adding interaction terms to the full model increased RMSE by 0.0029 and decreased $R^2$ by 0.0011. Adding an inverse transformation to the base model increased RMSE by 0.0424 when adjusted for transformation for the base model. The LASSO model improved upon the full model, decreasing RMSE by 0.0457 and increasing $R^2$ by 0.0203.
+The table of RMSE and $R^2$ values shows that the lasso model performed
+the best in terms of RMSE. It is important to note that the $R^2$ for
+the transformed models lack comparability to the non-transformed models,
+so we compare the RMSE values for those instead. The full model without
+any additional methods resulted in an RMSE of 4.4475 and an $R^2$ of
+0.0792. Adding interaction terms to the full model decreased RMSE by
+0.0224 and decreased $R^2$ by 0.0126. Adding an inverse transformation
+to the base model increased RMSE by 0.0509 when adjusted for
+transformation for the base model. The LASSO model improved upon the
+full model with an RMSE of 4.3747 and $R^2$ of 0.1098.
+Note that under back-transformed RMSE, the non transformed models are 0,
+since these models did not need to be adjusted for transformed error.
 
 ## Final Model
-We compare OLS vs Transformation vs LASSO while including interaction terms. As it turns out, the simplest model found the best root mean square error using cross validation, with RMSE 4.4212 and $R^2$ 0.11. Using other methods with the full model performed worse, with only slightly increased performance in $R^2$. It is important to note that the RMSE minimally changed between models, so each method only slightly changes performance. We choose the base model because it sacrifices the least in interpretability while also maintaining relatively similar performance. The estimated intercept term is 10.2, which has little interpretability, but is technically possible: a female child born within the year that has no screen time and no family income. The estimated slope parameter for screen time is -.0013, which represents an expected -0.0013 change in BMI for each additional point change in screen time, holding all other variables constant. The estimated slope parameter for age is 0.6395, meaning that for each point change in age, the expected increase in BMI is .6395, holding all other variables constant. The estimated slope parameter for gender is .7414, meaning that for a boy, the expected BMI is to be increased by .7414, holding all other variables constant. The estimated slope parameter for log income is 0.089, meaning that for each point increase in log income, BMI is expected to raise by 0.089, holding all other variables constant.
- 
+
+We compare OLS vs Transformation vs LASSO while including interaction
+terms. As it turns out, the LASSO model found the best root mean
+square error using cross validation, with RMSE 4.3805 and $R^2$ 0.1117. However, as mentioned in @sec-methods, the algorithm chose a final model that only included age, which drops the main predictor we are interested in.
+Using other methods with the full model performed worse, with only
+slightly increased performance in $R^2$. It is important to note that
+the RMSE minimally changed between models, so each method only slightly
+changes performance. We choose the base model over the LASSO model because it sacrifices the
+least in interpretability while also maintaining relatively similar
+performance. The estimated intercept term is 10.2, which has little
+interpretability, but is technically possible: a female child born
+within the year that has no screen time and no family income. The
+estimated slope parameter for screen time is -.0013, which represents an
+expected -0.0013 change in BMI for each additional point change in
+screen time, holding all other variables constant. The estimated slope
+parameter for age is 0.6395, meaning that for each point change in age,
+the expected increase in BMI is .6395, holding all other variables
+constant. The estimated slope parameter for gender is .7414, meaning
+that for a boy, the expected BMI is to be increased by .7414, holding
+all other variables constant. The estimated slope parameter for log
+income is 0.089, meaning that for each point increase in log income, BMI
+is expected to raise by 0.089, holding all other variables constant.
+
 # Discussion {#sec-discussion}
-Although we have selected a model that most accurately predicts bmi, since all of the $R^2$ values for our models were low, all models performed rather poorly. We conclude that for our analysis, we could not accurately predict BMI using screentime, age, sex, income, exercise time, sedentary time, sleep time, and age. Since the RMSE values were all greater than 4, and the BMI ranges for underweight, healthy, overweight, and obese are all around 6.5, our models have a strong likelihood of misclassifying, for example a healthy adolescent as overweight.
-[@ma_effect_2024] used a binary variable as their main predictor in their empirical analysis, while the extension done by this paper uses a continuous variable, screen time. This distinction could explain the negative coefficient found for screen time, whereas in the previous study, internet use was found to significantly increase BMI.
+
+Although we have selected the model that most accurately predicts bmi in our analysis,
+since all of the $R^2$ values for our models were low, all models
+performed poorly overall. In practice, we could not accurately predict BMI using screentime, age, sex, income, exercise time, sedentary time, sleep time, and age. This was hinted when the LASSO variable selection dropped almost all of the predictor variables, showing a low predictive accuracy when using the variables. Since the RMSE values were all greater than 4, and the BMI ranges for underweight, healthy, overweight, and obese are all around 6.5, our models have a strong
+likelihood of misclassifying, for example a healthy adolescent as
+overweight. [@ma_effect_2024] used a binary variable as their main
+predictor in their empirical analysis, while the extension done by this
+paper uses a continuous variable, screen time. This distinction could
+explain the negative coefficient found for screen time, whereas in the
+previous study, internet use was found to significantly increase BMI.
 
 ## Potential Weaknesses and Extensions
 
-Data values were inferred due to a lack of a data dictionary. This makes the report prone to error from data interpretation. Since the data was sourced from a national survey, there are many sources of data recording error, which we treat at the high end, where time values exceeded possibly daily limits. Inaccuracies towards the lower bound were not considered. Another weakness was that we did not consider scaling and centering the predictors. Standardizing variables can help avoid round off errors and make comparisons between estimated slope parameters easier.
+Data values were inferred due to a lack of a data dictionary. This makes
+the report prone to error from data interpretation. Since the data was
+sourced from a national survey, there are many sources of data recording
+error, which we treat at the high end, where time values exceeded
+possibly daily limits. Inaccuracies towards the lower bound were not
+considered. Another weakness was that we did not consider scaling and
+centering the predictors. Standardizing variables can help avoid round
+off errors and make comparisons between estimated slope parameters
+easier.
 
-One possible extension is the inclusion of Hypothesis 3 and 4 in @sec-data. We did not include these hypotheses in the model synthesizing process due to the large amount of N/A values in the rows, but with interpolation, further variable selection could be performed.
-Since this analysis only included adolescents from 2015, the model could be extended towards children in the other years, controlling if a child was sampled in the previous years.
+One possible extension is the inclusion of Hypothesis 3 and 4 in
+@sec-data. We did not include these hypotheses in the model synthesizing
+process due to the large amount of N/A values in the rows, but with
+interpolation, further variable selection could be performed. Since this
+analysis only included adolescents from 2015, the model could be
+extended towards children in the other years, controlling if a child was
+sampled in the previous years.
 
 # References
-
