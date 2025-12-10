@@ -7,7 +7,7 @@ Data:
  
 Dataset: https://dataverse.harvard.edu/file.xhtml?fileId=10498464&version=1.0
 
-Journal: https://journals.plos.org/plosone/a	rticle?id=10.1371/journal.pone.0311996
+Journal: https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0311996
 
 # External Resources
 The final report and code were written by Robert Yav, in R, using Quarto markdown, ggplot, tidyverse, caret, MASS, patchwork, and knitr packages used. 
