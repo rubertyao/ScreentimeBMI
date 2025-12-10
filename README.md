@@ -2,7 +2,7 @@ Code and Report Created by: Robert Yav
 
 Draft 1 Completed: 12/7/2025
 
-Draft 2 Completed: 12/10/2025
+Final Draft Completed: 12/10/2025
 
 This project examines the relationship between BMI and combined screen time for Chinese adolescents in 2015, controlling for external factors like age, sex, and income. How can screen time and other lifestyle factors predict BMI, controlling for age, gender, and household income?
 
