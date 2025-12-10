@@ -1,11 +1,11 @@
 ---
-title: "Can Screentime Predict BMI?"
+title: "Predicting BMI in Chinese Adolescents with Screentime"
 subtitle: "Math 261A Project 2"
 author: "Robert Yav"
 thanks: "Project repository available at: [https://github.com/rubertyao/ScreentimeBMI]"
 date: today
 date-format: long
-abstract: "As the screens used to browse the internet become more widespread within the modern era, tt may be of interest to predict BMI using screen time, controlling for factors such as age, gender, and household income. We explore the use of other predictor variables to more accurately predict BMI. We source data from the China Health and Nutrition Survey (CNHS) published in 2019, and motivation from a 2024 paper by Ma J. and Shang L. on the effect of internet use on body weight in Chinese adolescents. The sample is taken from a survey of Chinese adolescents and their demographic and health data. Three main approaches were used: OLS regression using a full and base model, a transformed model, and LASSO regression. The LASSO model performed the most favorably among the variations, but the base model was the final model chosen. "
+abstract: "As the screens used to browse the internet become more widespread within the modern era, tt may be of interest to predict BMI using screen time, controlling for factors such as age, gender, and household income. We explore the use of other predictor variables to more accurately predict BMI. We source data from the China Health and Nutrition Survey (CNHS) published in 2019, and motivation from a 2024 paper by Ma J. and Shang L. on the effect of internet use on body weight in Chinese adolescents. The sample is taken from a survey of Chinese adolescents and their demographic and health data. Three main approaches were used: OLS regression using a full and base model, a full model with interaction, a transformed model, and LASSO regression. The LASSO and interaction models performed the most favorably, but the final model chosen was the base model. "
 format: 
   pdf:
     fig-pos: "H"
@@ -28,7 +28,8 @@ library(MASS)
 library(ggplot2)
 library(patchwork)
 library(glmnet)
-set.seed(123)
+#set.seed(123)
+set.seed(124)
 ```
 
 # Introduction
@@ -62,7 +63,7 @@ scores for adolescents located in China in 2015. We go ahead and build
 and compare three main branches of models: OLS, Inverse Square Root
 Transformation, and LASSO regression. To compare model performance, we
 used k fold-cross validation and took average RMSE and $R^2$ across 10
-folds for each model. The model with the lowest RMSE was the LASSO model, but the final model chosen was the base model due to interpetation concerns.
+folds for each model. The final model chosen was the base model due to close relative performance and interpretation simplicity.
 
 The remainder of the paper are as follows. @sec-data presents the data,
 @sec-methods presents the models used, @sec-results shows the results,
@@ -173,25 +174,25 @@ this hypothesis for future studies as well.
 
 p1 = ggplot(bmi_data, aes(x = screeTIME, y = bmi)) +
   geom_point(color = "darkred") +
-  labs(title = "(a) BMI as explained by Screentime",
+  labs(title = "(a) BMI vs Screentime",
       x = "Screentime (minutes)", 
       y = "BMI")
 
 p2 = ggplot(bmi_data, aes(x = sleep, y = bmi)) +
   geom_point(color = "darkblue") +
-  labs(title = "(b) BMI as explained by Sleep Time",
+  labs(title = "(b) BMI vs Sleep Time",
       x = "Sleep Time (hours)", 
       y = "BMI")
 
 p3 = ggplot(bmi_data, aes(x = t_exe, y = bmi)) +
   geom_point(color = "darkgreen") +
-  labs(title = "(c) BMI as explained by Exercise",
+  labs(title = "(c) BMI vs Exercise",
       x = "Exercise Time (minutes)", 
       y = "BMI")
 
 p4 = ggplot(bmi_data, aes(x = all_seditry, y = bmi)) +
   geom_point(color = "purple") +
-  labs(title = "(d) BMI as explained by Sedentary Time",
+  labs(title = "(d) BMI vs Sedentary Time",
       x = "Sedentary Time (minutes)", 
       y = "BMI")
 (p1 | p2) / (p3 | p4)
@@ -229,7 +230,7 @@ model.
 $\epsilon_i$ represents independent, uncorrelated, normally distributed
 error terms with mean 0 and constant variance $\sigma^2$.
 
-For inference, initial visualizations of the errors showed no clear
+For inference, initial visualizations of the errors with a residual versus fitted values plot showed no clear
 violations of homoskedasticity. A visual of the qqplot shows tails at
 the end of the qqplots, which is an indication of a violation in the
 normality of errors. With a high enough sample size, this doesn't
@@ -379,7 +380,7 @@ r2_models = sapply(r2_models, function(m) round(m,4))
 rmse_models = sapply(rmse_models, function(m) round(m,4))
 rmsea_models = sapply(rmsea_models, function(m) round(m,4))
 sumtable = tibble(
-  Model = c("Base Model","Full Model","Full Model with Interaction","Inverse Transformed Base Model","Inverse Transformed Full Model","Inverse Transformed Full Model with Interaction","Lasso Model","Inverse Transformed Lasso Model"),
+  Model = c("Base Model","Full Model","Full Model with Interaction"," Transformed Base Model","Transformed Full Model","Transformed Full Model with Interaction","Lasso Model","Transformed Lasso Model"),
   RMSE = rmse_models,
   RMSEadj= rmsea_models,
   RSquared = r2_models
@@ -423,25 +424,17 @@ considered in the final model selection.
 #| fig-cap: "Summary table of cross validation results, reporting the RMSE, adjusted RMSE for transformation, and the coefficient of multiple determination."
 kable(sumtable)
 ```
+When checking the model performances in the table under different seeds, RMSE values for each of the models fluctuated, changing interpretation of which model performed the most favorably. Since RMSE only changed minimally throughout the models, it is likely that performance does not change drastically between models. However, the Base Model, Full Model with Interaction, and LASSO Models often performed the best in terms of RMSE. Using a transformation often decreased RMSE from the full model, and performing LASSO with a transformed response variable often performed the worst.
 
-The table of RMSE and $R^2$ values shows that the lasso model performed
-the best in terms of RMSE. It is important to note that the $R^2$ for
-the transformed models lack comparability to the non-transformed models,
-so we compare the RMSE values for those instead. The full model without
-any additional methods resulted in an RMSE of 4.4475 and an $R^2$ of
-0.0792. Adding interaction terms to the full model decreased RMSE by
-0.0224 and decreased $R^2$ by 0.0126. Adding an inverse transformation
-to the base model increased RMSE by 0.0509 when adjusted for
-transformation for the base model. The LASSO model improved upon the
-full model with an RMSE of 4.3747 and $R^2$ of 0.1098.
+Generally, model performance was low in terms of $R^2$. This is evident in how model selection under different seeds changed, as each "best" model performed equally as poorly to each other.
 Note that under back-transformed RMSE, the non transformed models are 0,
 since these models did not need to be adjusted for transformed error.
 
 ## Final Model
 
 We compare OLS vs Transformation vs LASSO while including interaction
-terms. As it turns out, the LASSO model found the best root mean
-square error using cross validation, with RMSE 4.3805 and $R^2$ 0.1117. However, as mentioned in @sec-methods, the algorithm chose a final model that only included age, which drops the main predictor we are interested in.
+terms. It was initially found that the LASSO model found the best root mean
+square error using cross validation. However, as mentioned in @sec-methods, the algorithm chose a final model that only included age, which drops the main predictor we are interested in.
 Using other methods with the full model performed worse, with only
 slightly increased performance in $R^2$. It is important to note that
 the RMSE minimally changed between models, so each method only slightly
@@ -465,7 +458,7 @@ is expected to raise by 0.089, holding all other variables constant.
 
 Although we have selected the model that most accurately predicts bmi in our analysis,
 since all of the $R^2$ values for our models were low, all models
-performed poorly overall. In practice, we could not accurately predict BMI using screentime, age, sex, income, exercise time, sedentary time, sleep time, and age. This was hinted when the LASSO variable selection dropped almost all of the predictor variables, showing a low predictive accuracy when using the variables. Since the RMSE values were all greater than 4, and the BMI ranges for underweight, healthy, overweight, and obese are all around 6.5, our models have a strong
+performed poorly overall. Note that comparing $R^2$ values for the transformed models to the other models cannot be performed. In practice, we could not accurately predict BMI using screentime, age, sex, income, exercise time, sedentary time, sleep time, and age. This was hinted when the LASSO variable selection dropped almost all of the predictor variables, showing a low predictive accuracy when using the variables. Since the RMSE values were all greater than 4, and the BMI ranges for underweight, healthy, overweight, and obese are all around 6.5, our models have a strong
 likelihood of misclassifying, for example a healthy adolescent as
 overweight. [@ma_effect_2024] used a binary variable as their main
 predictor in their empirical analysis, while the extension done by this
@@ -490,7 +483,6 @@ One possible extension is the inclusion of Hypothesis 3 and 4 in
 process due to the large amount of N/A values in the rows, but with
 interpolation, further variable selection could be performed. Since this
 analysis only included adolescents from 2015, the model could be
-extended towards children in the other years, controlling if a child was
-sampled in the previous years.
+extended towards children in the other years, controlling for individual fixed effects.
 
 # References
